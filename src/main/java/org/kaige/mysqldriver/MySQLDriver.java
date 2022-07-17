@@ -167,18 +167,29 @@ public class MySQLDriver {
         return clientSocket;
     }
 
-    private void sendQuery(Socket clientSocket) {
+    private void sendQuery(Socket clientSocket, String query) {
         OutputStream os = null;
         try {
             os = clientSocket.getOutputStream();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        writePacketLen(os, 16);
+        writePacketLen(os, query.length() + 3);
         writePacketNumber(os, 0);
 
-        String s = "03000173656c65637420757365722829";
+        String s = "030001"; //73656c65637420757365722829";
         writeHexString(os, s);
+        BufferedOutputStream outputStream = new BufferedOutputStream(os);
+        try {
+            outputStream.write(query.getBytes());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            outputStream.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static void main(String[] args) {
@@ -190,6 +201,6 @@ public class MySQLDriver {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        driver.sendQuery(clientSocket);
+        driver.sendQuery(clientSocket, "select user()");
     }
 }
