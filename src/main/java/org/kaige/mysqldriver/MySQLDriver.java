@@ -118,19 +118,13 @@ public class MySQLDriver {
     }
 
     private void writeHexString(OutputStream os, String s) {
-        BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(os);
         System.out.println(s);
         for (int i = 0; i < s.length(); i+=2) {
             try {
-                bufferedOutputStream.write(new byte[]{(byte) (Integer.parseInt(s.substring(i, i+2), 16) & 0xff)});
+                os.write(new byte[]{(byte) (Integer.parseInt(s.substring(i, i+2), 16) & 0xff)});
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }
-        try {
-            bufferedOutputStream.flush();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -168,25 +162,27 @@ public class MySQLDriver {
     }
 
     private void sendQuery(Socket clientSocket, String query) {
-        OutputStream os = null;
+        BufferedOutputStream os;
         try {
-            os = clientSocket.getOutputStream();
+            os = new BufferedOutputStream(clientSocket.getOutputStream());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         writePacketLen(os, query.length() + 3);
         writePacketNumber(os, 0);
 
-        String s = "030001"; //73656c65637420757365722829";
+        // 0x03 COM_QUERY
+        // 0X00 QUERY ATTRS COUNT
+        // 0X01 nsets == 1. fixed value
+        String s = "030001";
         writeHexString(os, s);
-        BufferedOutputStream outputStream = new BufferedOutputStream(os);
         try {
-            outputStream.write(query.getBytes());
+            os.write(query.getBytes());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         try {
-            outputStream.flush();
+            os.flush();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
