@@ -114,17 +114,27 @@ public class MySQLDriver {
         s += HexFormat.of().formatHex(encodedPassword);
         s += "63616368696e675f736861325f70617373776f72640072045f706964053938323235095f706c6174666f726d067838365f3634035f6f73054c696e75780c5f636c69656e745f6e616d65086c69626d7973716c076f735f7573657203796b670f5f636c69656e745f76657273696f6e06382e302e32390c70726f6772616d5f6e616d65056d7973716c";
 
+        writeHexString(os, s);
+    }
+
+    private void writeHexString(OutputStream os, String s) {
+        BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(os);
         System.out.println(s);
         for (int i = 0; i < s.length(); i+=2) {
             try {
-                os.write(new byte[]{(byte) (Integer.parseInt(s.substring(i, i+2), 16) & 0xff)});
+                bufferedOutputStream.write(new byte[]{(byte) (Integer.parseInt(s.substring(i, i+2), 16) & 0xff)});
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
+        try {
+            bufferedOutputStream.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private void conn() {
+    private Socket conn() {
         Socket clientSocket = null;
         try {
             clientSocket = new Socket(ip, port);
@@ -153,11 +163,33 @@ public class MySQLDriver {
             throw new RuntimeException(e);
         }
         sendLoginRequest(out, getSalt(buffer));
+
+        return clientSocket;
+    }
+
+    private void sendQuery(Socket clientSocket) {
+        OutputStream os = null;
+        try {
+            os = clientSocket.getOutputStream();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        writePacketLen(os, 16);
+        writePacketNumber(os, 0);
+
+        String s = "03000173656c65637420757365722829";
+        writeHexString(os, s);
     }
 
     public static void main(String[] args) {
         System.out.println("mysql");
         MySQLDriver driver = new MySQLDriver();
-        driver.conn();
+        Socket clientSocket = driver.conn();
+        try {
+            Thread.sleep(1);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        driver.sendQuery(clientSocket);
     }
 }
