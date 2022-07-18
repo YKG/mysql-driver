@@ -188,15 +188,59 @@ public class MySQLDriver {
         }
     }
 
+    private void dumpResponse(Socket clientSocket) {
+        System.out.println("---------------------- dumpResp");
+        BufferedInputStream is;
+        try {
+            is = new BufferedInputStream(clientSocket.getInputStream());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        long len = getPacketLength(is);
+        System.out.printf("%x\n", len);
+        System.out.printf("%x\n", getSeqId(is));
+        ByteBuffer buffer = dumpPayload(is, len);
+        System.out.println(buffer);
+    }
+
+
+    private void dumpQueryResponse(Socket clientSocket) {
+        System.out.println("---------------------- dumpQueryResp");
+        BufferedInputStream is;
+        try {
+            is = new BufferedInputStream(clientSocket.getInputStream());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        for (int i = 0; i < 4; i++) {
+            long len = getPacketLength(is);
+            System.out.printf("%x\n", len);
+            System.out.printf("%x\n", getSeqId(is));
+            ByteBuffer buffer = dumpPayload(is, len);
+            System.out.println(buffer);
+        }
+    }
+
     public static void main(String[] args) {
         System.out.println("mysql");
         MySQLDriver driver = new MySQLDriver();
         Socket clientSocket = driver.conn();
+        driver.dumpResponse(clientSocket);
+        driver.dumpResponse(clientSocket);
         try {
             Thread.sleep(1);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
         driver.sendQuery(clientSocket, "select user()");
+        driver.dumpQueryResponse(clientSocket);
+
+        try {
+            Thread.sleep(100000000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
