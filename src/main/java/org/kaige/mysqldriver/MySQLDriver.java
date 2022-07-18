@@ -188,6 +188,25 @@ public class MySQLDriver {
         }
     }
 
+
+    private void sendQuit(Socket clientSocket) {
+        BufferedOutputStream os;
+        try {
+            os = new BufferedOutputStream(clientSocket.getOutputStream());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        writePacketLen(os, 1 + 3);
+        writePacketNumber(os, 0);
+        writePacketNumber(os, ServerCommand.COM_QUIT.ordinal());
+
+        try {
+            os.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private void dumpResponse(Socket clientSocket) {
         System.out.println("---------------------- dumpResp");
         BufferedInputStream is;
@@ -236,11 +255,6 @@ public class MySQLDriver {
         }
         driver.sendQuery(clientSocket, "select user()");
         driver.dumpQueryResponse(clientSocket);
-
-        try {
-            Thread.sleep(100000000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        driver.sendQuit(clientSocket);
     }
 }
