@@ -253,7 +253,8 @@ public class MySQLDriver {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        driver.sendQuery(clientSocket, "select user()");
+//        driver.sendQuery(clientSocket, "select user()");
+        driver.sendQuery(clientSocket, "select User,Host from mysql.user");
         driver.dumpQueryResponse(clientSocket);
         driver.sendQuit(clientSocket);
     }
