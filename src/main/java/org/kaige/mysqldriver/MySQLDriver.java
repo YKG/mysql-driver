@@ -196,7 +196,7 @@ public class MySQLDriver {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        writePacketLen(os, 1 + 3);
+        writePacketLen(os, 1);
         writePacketNumber(os, 0);
         writePacketNumber(os, ServerCommand.COM_QUIT.ordinal());
 
