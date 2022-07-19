@@ -223,6 +223,24 @@ public class MySQLDriver {
         System.out.println(buffer);
     }
 
+    private long readLength(BufferedInputStream is) {
+        int code = (int) (readInt1(is) & 0xff);
+        int len = switch (code) {
+            case 0xfc -> 2;
+            case 0xfd -> 3;
+            case 0xfe -> 8;
+            default -> 1;
+        };
+        int[] arr = new int[len];
+        for (int i = len - 1; i >= 0; i--) {
+            arr[i] = (int) (readInt1(is) & 0xff);
+        }
+        long val = 0;
+        for (int i = len - 1; i >= 0; i--) {
+            val += ((long) arr[i] << (i * 8));
+        }
+        return val;
+    }
 
     private void dumpQueryResponse(Socket clientSocket) {
         System.out.println("---------------------- dumpQueryResp");
@@ -233,12 +251,61 @@ public class MySQLDriver {
             throw new RuntimeException(e);
         }
 
-        for (int i = 0; i < 4; i++) {
-            long len = getPacketLength(is);
-            System.out.printf("%x\n", len);
+        long len = getPacketLength(is);
+        System.out.printf("%x\n", len);
+        System.out.printf("%x\n", getSeqId(is));
+
+        long fieldsCount = 0;
+        if (len == 1) {
+            int code = (int) (readInt1(is) & 0xff);
+            switch (code) {
+                case 0x00:
+                    // ok (eg. set autocommit = 1)
+                    throw new RuntimeException("TODO never reach? ok");
+                case 0xfb:
+                    throw new RuntimeException("TODO 0xfb more data LOCAL INFILE Request");
+                case 0xff:
+                    // err (eg. xxx)
+                    throw new RuntimeException("TODO never reach? err");
+                default:
+                    fieldsCount = code;
+            }
+        } else {
+            int code = (int) (readInt1(is) & 0xff);
+            switch (code) {
+                case 0x00:
+                    // ok (eg. set autocommit = 1)
+                    dumpPayload(is, len - 1);
+                    break;
+                case 0xff:
+                    dumpPayload(is, len - 1);
+                    break;
+            }
+            fieldsCount = readLength(is);
+        }
+        System.out.println("Field Count: " + fieldsCount);
+
+        for (int i = 0; i < fieldsCount; i++) {
+            // get field desc
+            System.out.printf("Field[%d]:\n ", i);
+            long packetLength = getPacketLength(is);
+            System.out.printf("%x\n", packetLength);
             System.out.printf("%x\n", getSeqId(is));
-            ByteBuffer buffer = dumpPayload(is, len);
+            ByteBuffer buffer = dumpPayload(is, packetLength);
             System.out.println(buffer);
+        }
+
+        for (int i = 0; ; i++) {
+            long packetLength = getPacketLength(is);
+            System.out.printf("%x\n", packetLength);
+            System.out.printf("%x\n", getSeqId(is));
+            ByteBuffer buffer = dumpPayload(is, packetLength);
+            if (buffer.get(0) == (byte) 0xfe) { // EOF packet
+                System.out.printf(" <- EOF[%d]:\n ", i);
+                break;
+            }
+            System.out.printf(" <- Row[%d]:\n ", i);
+//            System.out.println(buffer);
         }
     }
 
@@ -253,8 +320,11 @@ public class MySQLDriver {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-//        driver.sendQuery(clientSocket, "select user()");
+        driver.sendQuery(clientSocket, "select user()");
+        driver.dumpQueryResponse(clientSocket);
         driver.sendQuery(clientSocket, "select User,Host from mysql.user");
+        driver.dumpQueryResponse(clientSocket);
+        driver.sendQuery(clientSocket, "set autocommit = 1");
         driver.dumpQueryResponse(clientSocket);
         driver.sendQuit(clientSocket);
     }
